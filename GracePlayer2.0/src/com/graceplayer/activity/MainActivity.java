@@ -516,7 +516,10 @@ public class MainActivity extends Activity {
 				@Override
 				public void onClick(DialogInterface arg0, int arg1) {
 					// TODO Auto-generated method stub
-					System.exit(0);
+					//System.exit(0);
+					Intent intent = new Intent(MainActivity.this,MusicService.class);
+					stopService(intent);
+					finish();
 				}
 			}).setNegativeButton("取消", new DialogInterface.OnClickListener() {
 				
@@ -620,7 +623,10 @@ public class MainActivity extends Activity {
 		}
 		else
 		{
-			System.exit(0);
+			//System.exit(0);
+			Intent intent = new Intent(MainActivity.this,MusicService.class);
+			stopService(intent);
+			finish();
 		}
 	}
 	private void audio_Control()
@@ -702,7 +708,10 @@ public class MainActivity extends Activity {
 			@Override
 			public void run() {
 				// TODO Auto-generated method stub
-				System.exit(0);
+				//System.exit(0);
+				Intent intent = new Intent(MainActivity.this,MusicService.class);
+				stopService(intent);
+				finish();
 			}
 		};
 		//定义对话框以及初始化
