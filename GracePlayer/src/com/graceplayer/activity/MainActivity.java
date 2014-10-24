@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Map;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
@@ -37,6 +40,10 @@ public class MainActivity extends Activity {
 	
 	// 当前歌曲的序号，下标从0开始
 	private int number = 0;
+	// 播放状态
+	private int status;
+	// 广播接收器
+	private StatusChangedReceiver receiver;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -49,6 +56,19 @@ public class MainActivity extends Activity {
 		initMusicList();
 		initListView();
 		checkMusicfile();
+		// 绑定广播接收器，可以接收广播
+		bindStatusChangedReceiver();
+		
+		startService(new Intent(this, MusicService.class));
+		status = MusicService.COMMAND_STOP;
+		
+	}
+	/** 绑定广播接收器 */
+	private void bindStatusChangedReceiver() {
+		receiver = new StatusChangedReceiver();
+		IntentFilter filter = new IntentFilter(
+				MusicService.BROADCAST_MUSICSERVICE_UPDATE_STATUS);
+		registerReceiver(receiver, filter);
 	}
 	/** 获取显示组件 */
 	private void findViews() {
@@ -63,41 +83,40 @@ public class MainActivity extends Activity {
 	private void registerListeners() {
 		imgBtn_Previous.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				moveNumberToPrevious();
-				play(number);
-				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_pause);
+				sendBroadcastOnCommand(MusicService.COMMAND_PREVIOUS);
 			}
 		});
 		imgBtn_PlayOrPause.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				if (player != null && player.isPlaying()) {
-					pause();
-					imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_play);
-				} else {
-					play(number);
-					imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_pause);
+				switch (status) {
+				case MusicService.STATUS_PLAYING:
+					sendBroadcastOnCommand(MusicService.COMMAND_PAUSE);
+					break;
+				case MusicService.STATUS_PAUSED:
+					sendBroadcastOnCommand(MusicService.COMMAND_RESUME);
+					break;
+				case MusicService.COMMAND_STOP:
+					sendBroadcastOnCommand(MusicService.COMMAND_PLAY);
+				default:
+					break;
 				}
 			}
 		});
 		imgBtn_Stop.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				stop();
-				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_play);
+				sendBroadcastOnCommand(MusicService.COMMAND_STOP);
 			}
 		});
 		imgBtn_Next.setOnClickListener(new OnClickListener() {
 			public void onClick(View view) {
-				moveNumberToNext();
-				play(number);
-				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_pause);
+				sendBroadcastOnCommand(MusicService.COMMAND_NEXT);
 			}
 		});
 		list.setOnItemClickListener(new OnItemClickListener() {
 			public void onItemClick(AdapterView<?> parent, View view,
 					int position, long id) {
-				number = position ;
-				play(number);
-				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.button_pause);
+				number = position;
+				sendBroadcastOnCommand(MusicService.COMMAND_PLAY);
 			}
 		});
 	}
@@ -170,6 +189,62 @@ public class MainActivity extends Activity {
 		}
 	}
 
+	@Override
+	protected void onResume() {
+		// TODO Auto-generated method stub
+		super.onResume();
+		sendBroadcastOnCommand(MusicService.COMMAND_CHECK_IS_PLAYING);
+	}
+	/** 发送命令，控制音乐播放。参数定义在MusicService类中 */
+	private void sendBroadcastOnCommand(int command) {
+
+		Intent intent = new Intent(MusicService.BROADCAST_MUSICSERVICE_CONTROL);
+		intent.putExtra("command", command);
+		// 根据不同命令，封装不同的数据
+		switch (command) {
+		case MusicService.COMMAND_PLAY:
+			intent.putExtra("number", number);
+			break;
+		case MusicService.COMMAND_PREVIOUS:
+		case MusicService.COMMAND_NEXT:
+		case MusicService.COMMAND_PAUSE:
+		case MusicService.COMMAND_STOP:
+		case MusicService.COMMAND_RESUME:
+		default:
+			break;
+		}
+		sendBroadcast(intent);
+	}
+	/** 内部类，用于播放器状态更新的接收广播 */
+	class StatusChangedReceiver extends BroadcastReceiver {
+		public void onReceive(Context context, Intent intent) {
+			// 获取播放器状态
+			status = intent.getIntExtra("status", -1);
+			switch (status) {
+			case MusicService.STATUS_PLAYING:
+				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.pause);
+				break;
+			case MusicService.STATUS_PAUSED:
+			case MusicService.STATUS_STOPPED:
+				imgBtn_PlayOrPause.setBackgroundResource(R.drawable.play);
+				break;
+			case MusicService.STATUS_COMPLETED:
+				sendBroadcastOnCommand(MusicService.COMMAND_NEXT);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	@Override
+	protected void onDestroy() {
+		// TODO Auto-generated method stub
+		if (status == MusicService.STATUS_STOPPED) {
+			stopService(new Intent(this, MusicService.class));
+		}
+		super.onDestroy();
+	}
+	
 	// 媒体播放类
 	private MediaPlayer player = new MediaPlayer();
 
