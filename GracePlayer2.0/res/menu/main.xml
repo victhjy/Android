@@ -18,11 +18,6 @@
         android:showAsAction="never"
         android:title="@string/sleep"/>
     <item
-        android:id="@+id/menu_lrc"
-        android:orderInCategory="100"
-        android:showAsAction="never"
-        android:title="@string/lrc"/>
-    <item
         android:id="@+id/menu_about"
         android:orderInCategory="100"
         android:showAsAction="never"
